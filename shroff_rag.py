@@ -5,6 +5,7 @@ import json
 import pandas as pd
 from langchain.chat_models import init_chat_model
 import parsers
+import os
 
 pd.set_option("display.max_columns", None)
 pd.set_option("display.width", 1000)
@@ -30,11 +31,19 @@ class DataStore:
             metadata={"hnsw:space": "cosine"},
         )
         self.collection = collection
-        print(f"created collection: {collection}")
+        self._update_number_of_documents()
+
+        print(f"created collection: {collection} with {collection.metadata['N_full_documents']} documents")
 
     def add_document(self, filename, chunk_size=1000, chunk_overlap=250, chunk=True):
 
-        id, document, metadata = parsers.parse_pdf(filename)
+        extension = os.path.splitext(filename)[1]
+
+        if extension == '.pdf':
+            id, document, metadata = parsers.parse_pdf(filename)
+        else:
+            raise(Exception('extension not allowed'))
+
         metadata = convert_datatypes(metadata)
 
         self.collection.add(
@@ -59,12 +68,6 @@ class DataStore:
             )
             print(f"   - added {len(chunks_ids)} chunks from {filename}")
 
-    def add(self, ids, documents, metadatas):
-
-        metadatas = [convert_datatypes(metadata) for metadata in metadatas]
-        print(metadatas)
-
-        self.collection.add(ids=ids, documents=documents, metadatas=metadatas)
 
     def search(self, query, k=10):
         results = self.collection.query(
@@ -95,6 +98,32 @@ class DataStore:
     def info(self):
         collections = self.client.list_collections()
         print(f"collections: {collections}")
+
+    def _update_number_of_documents(self):
+        r = self.collection.get(where={"source_type":"full document"}, include = [])
+        self.collection.metadata['N_full_documents'] = len(r['ids'])
+
+    def _get_simplified_document_df(self, max_doc_length = 100):
+
+        results = self.collection.get(where = {'chunk_idx':-1})
+
+        documents = results["documents"]
+        truncated_documents = [s[:max_doc_length] + '... (truncated)' for s in documents]
+
+        df_meta = pd.DataFrame.from_dict(results["metadatas"])
+        df_ids = pd.DataFrame({"id": results["ids"]})
+        df_documents = pd.DataFrame({"document": truncated_documents})
+        df_results = pd.concat(
+            [df_ids, df_meta, df_documents],
+            axis=1,
+        )
+
+        df_results = df_results.drop(columns = ['chunk_idx', 'hash', 'source_type', 'N_chunks', 'source_id', 'pca'])
+
+        df_results = _reorder_cols(df_results, ['basename', 'document'])
+
+        return df_results
+
 
 
 class CustomEmbeddingFunction(EmbeddingFunction):

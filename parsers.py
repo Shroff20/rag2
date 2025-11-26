@@ -16,6 +16,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 def parse_pdf(filename, verbose=False):
 
     basename = os.path.basename(filename)
+    file_ext = os.path.splitext(filename)[1]
 
     modification_timestamp = os.path.getmtime(filename)
     modification_date = datetime.datetime.fromtimestamp(modification_timestamp)
@@ -57,7 +58,7 @@ def parse_pdf(filename, verbose=False):
         # "bytes": bytes_data,  #TODO: get this working
         # "text": full_text,
         "page_lengths": page_lengths,
-        "file_ext": ".pdf",
+        "file_ext": file_ext,
         "source_type": "full document",
         "pca": "",
         "chunk_idx": -1,
