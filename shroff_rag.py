@@ -3,6 +3,7 @@ from sentence_transformers import SentenceTransformer
 from chromadb import Documents, EmbeddingFunction, Embeddings
 import json
 import pandas as pd
+from langchain.chat_models import init_chat_model
 
 
 pd.set_option("display.max_columns", None)
@@ -18,6 +19,7 @@ class DataStore:
         self.database_folder = database_folder
         self.collection = None
         self.client = chromadb.PersistentClient(path=database_folder)
+        self.llm_model = None
 
     def create_collection(self, collection_name="documents"):
 
@@ -43,7 +45,20 @@ class DataStore:
             n_results=k,
         )
         df_results_list = _results_to_df(results)
-        return df_results_list
+        df_results = df_results_list[0]
+        return df_results
+    
+    def query(self, query, k = 10):
+            
+        if self.llm_model == None:
+            self.llm_model = init_chat_model("google_genai:gemini-2.5-flash-lite")
+
+        df_results = self.search(query=query, k = k)
+        llm_query = build_rag_prompt(query, df_results)
+        response = self.llm_model .invoke(llm_query)
+        #print(response)
+        return response
+
 
     def clear_collections(self):
         collections = self.client.list_collections()
@@ -54,6 +69,11 @@ class DataStore:
     def info(self):
         collections = self.client.list_collections()
         print(f"collections: {collections}")
+
+
+
+
+
 
 
 class CustomEmbeddingFunction(EmbeddingFunction):
@@ -87,12 +107,14 @@ def _results_to_df(results):
         df_meta = df_meta.drop("id", axis=1)
         df_ids = pd.DataFrame({"id": results["ids"][iresult]})
         df_distances = pd.DataFrame({"distance": results["distances"][iresult]})
+        df_documents = pd.DataFrame({"document": results["documents"][iresult]})
 
         df_results = pd.concat(
             [
                 df_distances,
                 df_ids,
                 df_meta,
+                df_documents
             ],
             axis=1,
         )
@@ -114,3 +136,40 @@ def _reorder_cols(df, cols_to_move_to_front):
             + [col for col in df.columns if col not in cols_to_move_to_front]
         ]
     return df
+
+
+
+def build_rag_prompt(query, df_results):
+    # 1. Join your retrieved documents into a single string
+    # Assuming 'documents' is a list of strings or objects with .page_content
+
+
+    divider = '-------------------------------------------\n'
+
+
+    context_text = ''
+
+    for idx in df_results.index:
+        context_text += divider
+        context_text += "<filename>: " + df_results.loc[idx, 'basename'] + "\n"
+        context_text += df_results.loc[idx, 'document'] + "\n"
+        context_text += divider
+        
+    
+    # 2. The Template
+    template = f"""
+You are a technical assistant helping answer questions based strictly on the provided documents.
+
+Guidelines:
+- Answer the question based ONLY on the context below.
+- If the context does not contain the answer, say "I cannot answer this based on the provided documents."
+- Do not use outside knowledge.
+- At the end of your response, append the citation like this: (source: <filename>).
+
+<context>
+{context_text}
+</context>
+{divider}
+Question: {query}
+"""
+    return template
