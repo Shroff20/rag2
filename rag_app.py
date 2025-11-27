@@ -72,9 +72,7 @@ def process_files():
     N_files = len(st.session_state["h_uploaded_files"])
     print(st.session_state["h_uploaded_files"])
     for i in range(N_files):
-
-        uploaded_file = st.session_state["h_uploaded_files"][0]
-
+        uploaded_file = st.session_state["h_uploaded_files"][i]
         percent_complete = 0.0
         with st.sidebar:
             st.session_state["h_progress"].progress(
@@ -85,7 +83,6 @@ def process_files():
             with open(tmp_file_path, "wb") as f:
                 f.write(uploaded_file.getvalue())
             st.session_state["DS"].add_document(tmp_file_path)
-
             percent_complete = 100.0 * (i + 1) / N_files
             with st.sidebar:
                 st.session_state["h_progress"].progress(
@@ -93,9 +90,9 @@ def process_files():
                 )
 
 
-def search(query):
-    results = st.session_state["DS"].search(query)
-    h_results = st.write(results)
+def run_query(query):
+    results = st.session_state["DS"].query(query)
+    return results
 
 
 def display_chat():
@@ -103,24 +100,23 @@ def display_chat():
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
+def clear_chat():
+    st.session_state.messages = []
 
+
+
+prompt = st.chat_input("Enter your query?", key = 'h_prompt')  # cannot be in a tab to force positioning to bottom
 
 initalize()
 inititalize_sidebar()
 process_files()
 
 
-with st.sidebar:
-    pass
-
-prompt = st.chat_input("Enter your query?", key = 'h_prompt')  # cannot be in a tab to force positioning to bottom
-
-tab1, tab2, tab3, tab4= st.tabs(["Query", "Search", "Cluster", "List documents"])
+tab1, tab2, tab3, tab4= st.tabs(["query", "search", "custer", "list documents"])
 
 
 with tab1:
     st.title("Ask me anything")
-
     # Initialize chat history
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -132,20 +128,16 @@ with tab1:
 
     if prompt is not None:
         st.session_state.messages.append({"role": "user", "content": prompt})
-        response = f"Echo: {prompt}"
+        response = run_query(prompt).content
         st.session_state.messages.append({"role": "assistant", "content": response})
         st.chat_message("user").markdown(prompt)
         st.chat_message("assistant").markdown(response)
+    st.button('clear chat', on_click = clear_chat)
 
-with tab3:
+with tab4:
     df = st.session_state['DS']._get_simplified_document_df()
     cols = st.multiselect ('Select a column', df.columns, default = st.session_state["selected_cols"])
     st.dataframe(df.loc[:, cols])
     st.session_state["selected_cols"] =  cols
     print(st.session_state["selected_cols"])
-# if query:
-#     results = DS.search(query)
-#     h_results = st.write(results)
 
-
-# streamlit run rag_app.py

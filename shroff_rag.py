@@ -76,6 +76,7 @@ class DataStore:
         )
         df_results_list = _results_to_df(results)
         df_results = df_results_list[0]
+        print(f'found {len(df_results)} similar documents')
         return df_results
 
     def query(self, query, k=10):
@@ -201,8 +202,7 @@ You are a technical assistant helping answer questions based strictly on the pro
 Guidelines:
 - Answer the question based ONLY on the context below.
 - If the context does not contain the answer, say "I cannot answer this based on the provided documents."
-- Do not use outside knowledge.
-- At the end of your response, append the citation like this: (source: <filename>).
+- If you can answer, at the end of your response, append the citation like this: (source: <filename>).
 
 <context>
 {context_text}
