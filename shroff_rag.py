@@ -93,8 +93,9 @@ class DataStore:
     def clear_collections(self):
         collections = self.client.list_collections()
         for collection in collections:
-            self.client.delete_collection(collection.name)
-            print(f"deleted {collection}")
+            r = collection.get(include = [])
+            collection.delete(r['ids'])
+            print(f"deleted data in {collection}")
 
     def info(self):
         collections = self.client.list_collections()
@@ -119,7 +120,10 @@ class DataStore:
             axis=1,
         )
 
-        df_results = df_results.drop(columns = ['chunk_idx', 'hash', 'source_type', 'N_chunks', 'source_id', 'pca'])
+
+        drop_cols =  ['chunk_idx', 'hash', 'source_type', 'N_chunks', 'source_id', 'pca']
+
+        df_results = df_results.drop(columns = drop_cols, errors = 'ignore')
 
         df_results = _reorder_cols(df_results, ['basename', 'document'])
 

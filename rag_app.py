@@ -39,55 +39,32 @@ def initalize():
     set_session_state(config)
 
 
-def inititalize_sidebar():
-    with st.sidebar:
-
-        h_document_count = st.metric(
-        "Loaded documents", st.session_state["DS"].collection.metadata['N_full_documents'], border=True
-        )
-        st.session_state["h_document_count"] = h_document_count
-     
-        h_progress= st.progress(
-            0 / 100, text=f"Nothing to process"
-        )
-        st.session_state["h_progress"] = h_progress
-
-        h_uploaded_files = st.file_uploader(
-                "Upload documents",
-                accept_multiple_files=True,
-                type=allowed_filetpyes,
-                label_visibility="hidden",
-                key = 'h_uploaded_files',
-                on_change =  process_files
-            )
-                  
-        st.write(f"database path: {database_folder}")
-
-        st.button(label = 'delete all documents', on_click = delete_all_collections)
-
     
 
 
-def process_files():
-    N_files = len(st.session_state["h_uploaded_files"])
-    print(st.session_state["h_uploaded_files"])
-    for i in range(N_files):
-        uploaded_file = st.session_state["h_uploaded_files"][i]
+def process_files(files):
+    N_files = len(files)
+
+    starting_document_count =  st.session_state["DS"].collection.metadata['N_full_documents']
+
+    for i, file in enumerate(files):
         percent_complete = 0.0
         with st.sidebar:
             st.session_state["h_progress"].progress(
                 percent_complete / 100, text=f"Processing: {percent_complete:.1f}%"
             )
             temp_dir = tempfile.mkdtemp()
-            tmp_file_path = os.path.join(temp_dir, uploaded_file.name)
+            tmp_file_path = os.path.join(temp_dir, file.name)
             with open(tmp_file_path, "wb") as f:
-                f.write(uploaded_file.getvalue())
+                f.write(file.getvalue())
             st.session_state["DS"].add_document(tmp_file_path)
             percent_complete = 100.0 * (i + 1) / N_files
-            with st.sidebar:
-                st.session_state["h_progress"].progress(
-                    percent_complete / 100, text=f"Processing: {percent_complete:.1f}%"
-                )
+            st.session_state["h_progress"].progress(
+                percent_complete / 100, text=f"Processing: {percent_complete:.1f}%"
+            )
+            current_document_count = st.session_state["DS"].collection.metadata['N_full_documents']
+            st.session_state["h_document_count"].metric(
+            "Loaded documents",current_document_count, current_document_count-starting_document_count, border=True)
 
 
 def run_query(query):
@@ -108,11 +85,33 @@ def clear_chat():
 prompt = st.chat_input("Enter your query?", key = 'h_prompt')  # cannot be in a tab to force positioning to bottom
 
 initalize()
-inititalize_sidebar()
-process_files()
 
 
 tab1, tab2, tab3, tab4= st.tabs(["query", "search", "custer", "list documents"])
+
+with st.sidebar:
+        h_document_count = st.metric(
+        "Loaded documents", st.session_state["DS"].collection.metadata['N_full_documents'], border=True
+        )
+        st.session_state["h_document_count"] = h_document_count
+
+        h_progress= st.progress(
+            0 / 100, text=f"Nothing to process"
+        )
+        st.session_state["h_progress"] = h_progress
+
+        h_uploaded_files = st.file_uploader(
+                "Upload documents",
+                accept_multiple_files=True,
+                type=allowed_filetpyes,
+                label_visibility="hidden",
+                key = 'h_uploaded_files',
+            )
+        process_files(h_uploaded_files)
+                  
+        st.write(f"database path: {database_folder}")
+
+        st.button(label = 'delete all documents', on_click = delete_all_collections)
 
 
 with tab1:
@@ -136,8 +135,15 @@ with tab1:
 
 with tab4:
     df = st.session_state['DS']._get_simplified_document_df()
-    cols = st.multiselect ('Select a column', df.columns, default = st.session_state["selected_cols"])
-    st.dataframe(df.loc[:, cols])
+    #selected_cols = [col for col in df.columns if col in st.session_state["selected_cols"]]
+
+    if "selected_cols" in st.session_state:
+        selected_cols = [col for col in df.columns if col in st.session_state["selected_cols"]]
+    else:
+        selected_cols = [col for col in df.columns if col in ['basename', 'document']]
+
+    cols = st.multiselect('Select a column', df.columns, default = selected_cols)
+    print('glat', cols)
     st.session_state["selected_cols"] =  cols
     print(st.session_state["selected_cols"])
 
