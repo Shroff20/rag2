@@ -1,3 +1,5 @@
+import os
+os.environ["OMP_NUM_THREADS"] = "1"  # avoid windows memory leak in sklearn kmeans, set before Kmeans importimport parsers
 import chromadb
 from sentence_transformers import SentenceTransformer
 from chromadb import Documents, EmbeddingFunction, Embeddings
@@ -6,6 +8,12 @@ import pandas as pd
 from langchain.chat_models import init_chat_model
 import parsers
 import os
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+import pandas as pd
+import json
+import ast
+import numpy as np
 
 pd.set_option("display.max_columns", None)
 pd.set_option("display.width", 1000)
@@ -33,16 +41,18 @@ class DataStore:
         self.collection = collection
         self._update_number_of_documents()
 
-        print(f"created collection: {collection} with {collection.metadata['N_full_documents']} documents")
+        print(
+            f"created collection: {collection} with {collection.metadata['N_full_documents']} documents"
+        )
 
     def add_document(self, filename, chunk_size=1000, chunk_overlap=250, chunk=True):
 
         extension = os.path.splitext(filename)[1]
 
-        if extension == '.pdf':
+        if extension == ".pdf":
             id, document, metadata = parsers.parse_pdf(filename)
         else:
-            raise(Exception('extension not allowed'))
+            raise (Exception("extension not allowed"))
 
         metadata = convert_datatypes(metadata)
 
@@ -76,7 +86,7 @@ class DataStore:
         )
         df_results_list = _results_to_df(results)
         df_results = df_results_list[0]
-        print(f'found {len(df_results)} similar documents')
+        print(f"found {len(df_results)} similar documents")
         return df_results
 
     def query(self, query, k=10):
@@ -93,8 +103,9 @@ class DataStore:
     def clear_collections(self):
         collections = self.client.list_collections()
         for collection in collections:
-            r = collection.get(include = [])
-            collection.delete(r['ids'])
+            r = collection.get(include=[])
+            if len(r["ids"]) > 0:  # will result in error if there is an empty list
+                collection.delete(r["ids"])
             print(f"deleted data in {collection}")
         self._update_number_of_documents()
 
@@ -102,16 +113,65 @@ class DataStore:
         collections = self.client.list_collections()
         print(f"collections: {collections}")
 
+    def compute_pca(self, n_components=None):
+
+        data = self.collection.get(include=["embeddings"])
+
+        ids = data["ids"]
+        embeddings = data["embeddings"]
+        print(f"embeddings matrix is {embeddings.shape}")
+        pca = PCA(n_components=n_components)
+        pca_embeddings = pca.fit_transform(embeddings)
+        print(f"pca matrix is {pca_embeddings.shape}")
+
+        # columns = [f'pca_{x}' for x in range(pca_embeddings.shape[1])]
+        # df_pca  = pd.DataFrame(pca_embeddings, index = ids, columns = columns)
+        # df_pca
+
+        metadatas = [{"pca": json.dumps(x.tolist())} for x in list(pca_embeddings)]
+        self.collection.update(ids=ids, metadatas=metadatas)
+
+        self.pca = pca
+
+        print("saved pca data to vector database")
+    
+    def run_kmeans(self, n_clusters):
+        pca_matrix = self._get_pca_matrix()
+        kmeans = KMeans(n_clusters=n_clusters, random_state=0, n_init="auto").fit(pca_matrix)
+        labels = kmeans.labels_
+        inertia = kmeans.inertia_
+        self.KMeans = KMeans
+        return labels, inertia, pca_matrix
+
+
+    def _get_pca_matrix(self):
+        data = self.collection.get(include=[])
+        ids = data["ids"]
+
+        pca_matrix = []
+
+        for id in ids:
+            pca = self.collection.get(ids=id).get("metadatas")[0]["pca"]
+            pca = np.array(ast.literal_eval(pca), dtype=np.float16)
+            pca_matrix.append(pca)
+
+        pca_matrix = np.vstack(pca_matrix)
+        return pca_matrix
+
     def _update_number_of_documents(self):
-        r = self.collection.get(where={"source_type":"full document"}, include = [])
-        self.collection.metadata['N_full_documents'] = len(r['ids'])
+        if self.collection is not None:
+            r = self.collection.get(where={"source_type": "full document"}, include=[])
+            N_documents = len(r["ids"])
+            self.collection.metadata["N_full_documents"] = N_documents
 
-    def _get_simplified_document_df(self, max_doc_length = 100):
+    def _get_simplified_document_df(self, max_doc_length=100):
 
-        results = self.collection.get(where = {'chunk_idx':-1})
+        results = self.collection.get(where={"chunk_idx": -1})
 
         documents = results["documents"]
-        truncated_documents = [s[:max_doc_length] + '... (truncated)' for s in documents]
+        truncated_documents = [
+            s[:max_doc_length] + "... (truncated)" for s in documents
+        ]
 
         df_meta = pd.DataFrame.from_dict(results["metadatas"])
         df_ids = pd.DataFrame({"id": results["ids"]})
@@ -121,15 +181,13 @@ class DataStore:
             axis=1,
         )
 
+        drop_cols = ["chunk_idx", "hash", "source_type", "N_chunks", "source_id", "pca"]
 
-        drop_cols =  ['chunk_idx', 'hash', 'source_type', 'N_chunks', 'source_id', 'pca']
+        df_results = df_results.drop(columns=drop_cols, errors="ignore")
 
-        df_results = df_results.drop(columns = drop_cols, errors = 'ignore')
-
-        df_results = _reorder_cols(df_results, ['basename', 'document'])
+        df_results = _reorder_cols(df_results, ["basename", "document"])
 
         return df_results
-
 
 
 class CustomEmbeddingFunction(EmbeddingFunction):
@@ -187,7 +245,6 @@ def _reorder_cols(df, cols_to_move_to_front):
 
 
 def build_rag_prompt(query, df_results):
-    # 1. Join your retrieved documents into a single string
     # Assuming 'documents' is a list of strings or objects with .page_content
 
     divider = "-------------------------------------------\n"
@@ -200,7 +257,6 @@ def build_rag_prompt(query, df_results):
         context_text += df_results.loc[idx, "document"] + "\n"
         context_text += divider
 
-    # 2. The Template
     template = f"""
 You are a technical assistant helping answer questions based strictly on the provided documents.
 
