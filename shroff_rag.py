@@ -67,7 +67,7 @@ class DataStore:
                 ids=chunks_ids, documents=chunk_documents, metadatas=chunk_metadatas
             )
             print(f"   - added {len(chunks_ids)} chunks from {filename}")
-
+        self._update_number_of_documents()
 
     def search(self, query, k=10):
         results = self.collection.query(
@@ -96,6 +96,7 @@ class DataStore:
             r = collection.get(include = [])
             collection.delete(r['ids'])
             print(f"deleted data in {collection}")
+        self._update_number_of_documents()
 
     def info(self):
         collections = self.client.list_collections()
