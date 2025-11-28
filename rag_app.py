@@ -45,7 +45,8 @@ def initalize():
         "messages": [],
         "documents_to_process": [],
         "database_path" : default_database_dir,
-        "api_key" : default_api_key
+        "api_key" : default_api_key,
+        "status_pca_valid" : False
     }
     set_session_state(config)
 
@@ -103,8 +104,8 @@ prompt = st.chat_input(
 
 
 def set_api_key(env_var = "GOOGLE_API_KEY"):
-    os.environ[env_var] = st.session.state['api_key']
-    print(f"set {env_var}={st.session.state['api_key']}")
+    os.environ[env_var] = st.session_state['api_key']
+    print(f"set {env_var}={st.session_state['api_key']}")
 
 
 initalize()
@@ -167,6 +168,20 @@ with tab1:
         st.chat_message("user").markdown(prompt)
         st.chat_message("assistant").markdown(response)
     st.button("clear chat", on_click=clear_chat)
+
+with tab3:
+    n_clusters = st.slider(label = "# clusters", min_value=1, max_value = 20, value = 3)
+    run_clustering = st.button('run clustering')
+    if run_clustering:
+        if st.session_state['status_pca_valid'] == False:
+            st.session_state['DS'].compute_pca()
+            st.session_state['status_pca_valid'] = True
+
+        labels, inertia, df_pca = st.session_state['DS'].run_kmeans(n_clusters = n_clusters)
+        print(f'ran clustering with n_clusters = {n_clusters}')
+        print(df_pca.columns)
+        df_pca['label'] = [f'cluster {label+1}' for label in labels]
+        st.scatter_chart(data=df_pca, x=df_pca.columns[0], y=df_pca.columns[1], x_label='pca component 1', y_label='pca component 2', color='label')
 
 with tab4:
     df = st.session_state["DS"]._get_simplified_document_df()

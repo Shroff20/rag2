@@ -156,7 +156,9 @@ class DataStore:
             pca_matrix.append(pca)
 
         pca_matrix = np.vstack(pca_matrix)
-        return pca_matrix
+        df_pca = pd.DataFrame(pca_matrix, index = ids, columns = [f'pca_{x}' for x in range(pca_matrix.shape[1])])
+
+        return df_pca
 
     def _update_number_of_documents(self):
         if self.collection is not None:
