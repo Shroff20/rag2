@@ -43,9 +43,8 @@ def initalize():
         st.session_state["DS"] = DS
 
     config = {
-        "selected_cols": ["basename", "document"],
-        "device": device,
         "messages": [],
+        "documents_to_process": []
     }
     set_session_state(config)
 
@@ -56,9 +55,8 @@ def process_files(files):
     starting_document_count = st.session_state["DS"].collection.metadata[
         "N_full_documents"
     ]
-
+    percent_complete = 0.0
     for i, file in enumerate(files):
-        percent_complete = 0.0
         with st.sidebar:
             st.session_state["h_progress"].progress(
                 percent_complete / 100, text=f"Processing: {percent_complete:.1f}%"
@@ -125,6 +123,7 @@ with st.sidebar:
         )
         submitted = st.form_submit_button("process")
         if submitted:
+            st.session_state['documents_to_process'].append(h_uploaded_files)
             process_files(files=h_uploaded_files)
 
     st.write(f"database path: {database_folder}")
