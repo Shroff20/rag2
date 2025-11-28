@@ -11,8 +11,8 @@ import os
 
 
 device = "cuda"
-database_folder = "./database_data"
-os.environ["GOOGLE_API_KEY"] = "AIzaSyCp2r7wKvf_aNLc1gxzJTdhLrVAwaS-0WM"
+default_database_dir = "./database_data"
+default_api_key = "AIzaSyCp2r7wKvf_aNLc1gxzJTdhLrVAwaS-0WM"
 allowed_filetpyes = [".pdf"]
 
 
@@ -35,18 +35,22 @@ def delete_all_collections():
     update_document_count()
 
 
+def update_connection():
+    DS = shroff_rag.DataStore(device, st.session_state['database_path'])
+    DS.create_collection()
+    st.session_state["DS"] = DS
+
 def initalize():
-
-    if "DS" not in st.session_state:
-        DS = shroff_rag.DataStore(device, database_folder)
-        DS.create_collection()
-        st.session_state["DS"] = DS
-
     config = {
         "messages": [],
-        "documents_to_process": []
+        "documents_to_process": [],
+        "database_path" : default_database_dir,
+        "api_key" : default_api_key
     }
     set_session_state(config)
+
+    if "DS" not in st.session_state:
+        update_connection()
 
 
 def process_files(files):
@@ -97,6 +101,12 @@ prompt = st.chat_input(
     "Enter your query?", key="h_prompt"
 )  # cannot be in a tab to force positioning to bottom
 
+
+def set_api_key(env_var = "GOOGLE_API_KEY"):
+    os.environ[env_var] = st.session.state['api_key']
+    print(f"set {env_var}={st.session.state['api_key']}")
+
+
 initalize()
 
 
@@ -110,10 +120,9 @@ with st.sidebar:
     )
     st.session_state["h_document_count"] = h_document_count
 
-    h_progress = st.progress(0 / 100, text=f"Nothing to process")
-    st.session_state["h_progress"] = h_progress
 
     with st.form("my-form", clear_on_submit=True):
+        st.header("Add files")
         h_uploaded_files = st.file_uploader(
             "Upload documents",
             accept_multiple_files=True,
@@ -121,14 +130,23 @@ with st.sidebar:
             label_visibility="hidden",
             #key="h_uploaded_files",
         )
-        submitted = st.form_submit_button("process")
+        submitted = st.form_submit_button("▶️ process")
+        h_progress = st.progress(0 / 100, text=f"Nothing to process")
+        st.session_state["h_progress"] = h_progress
+
+        
         if submitted:
             st.session_state['documents_to_process'].append(h_uploaded_files)
             process_files(files=h_uploaded_files)
 
-    st.write(f"database path: {database_folder}")
-
-    st.button(label="delete all documents", on_click=delete_all_collections)
+    with st.container( border = True):
+        st.header("Database")
+        st.text_input(label = 'database path' , key = 'database_path', on_change=update_connection())
+        st.button(label="⚠️ delete all documents", on_click=delete_all_collections)
+    
+    with st.container( border = True):
+        st.header("Language model")  
+        st.text_input(label = 'API key', key = 'api_key', on_change=set_api_key, help = 'enter your API key for the language model')
 
 
 with tab1:
