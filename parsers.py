@@ -12,8 +12,14 @@ from pypdf import PdfReader
 import json
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+def generate_document_uuid(basename, full_text, chunk_idx):
+    uuid_document = str(uuid.uuid5(uuid.NAMESPACE_URL, basename + full_text))
+    return uuid_document
+    
 
-def parse_pdf(filename, verbose=False):
+
+
+def parse_pdf(filename):
 
     basename = os.path.basename(filename)
     file_ext = os.path.splitext(filename)[1]
@@ -41,8 +47,9 @@ def parse_pdf(filename, verbose=False):
     with open(filename, "rb") as file:
         bytes_data = file.read()
 
+    chunk_idx = -1 # will use -1 for fulll document, 0 to N-1 for chunks
     hash_document = str(sha256sum(filename))
-    uuid_document = str(uuid.uuid5(uuid.NAMESPACE_URL, basename + full_text))
+    uuid_document = generate_document_uuid(basename, full_text, chunk_idx)
 
     id = uuid_document
     document = full_text
@@ -68,7 +75,7 @@ def parse_pdf(filename, verbose=False):
     return id, document, metadata
 
 
-def chunk_documents(document, metadata, chunk_size=1000, chunk_overlap=250):
+def chunk_documents(document, metadata, chunk_size=2000, chunk_overlap=250):
 
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size, chunk_overlap=chunk_overlap
@@ -76,7 +83,9 @@ def chunk_documents(document, metadata, chunk_size=1000, chunk_overlap=250):
     chunk_documents = text_splitter.split_text(document)
 
     N_chunks = len(chunk_documents)
-    chunks_ids = [str(uuid.uuid4()) for i in range(N_chunks)]
+    basename = metadata['basename']
+
+    chunks_ids = [generate_document_uuid(basename, chunk_documents[i], i) for i in range(N_chunks)]
 
     chunk_metadatas = []
     for i in range(N_chunks):
@@ -90,4 +99,4 @@ def chunk_documents(document, metadata, chunk_size=1000, chunk_overlap=250):
 
 def sha256sum(filename):
     with open(filename, "rb", buffering=0) as f:
-        return hashlib.file_digest(f, "sha256").hexdigest()
+        return str(hashlib.file_digest(f, "sha256").hexdigest())
