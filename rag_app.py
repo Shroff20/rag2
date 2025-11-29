@@ -171,7 +171,10 @@ with tab1:
 
 with tab3:
     n_clusters = st.slider(label = "# clusters", min_value=1, max_value = 10, value = 3)
-    run_clustering = st.button('run clustering')
+    plot_3d = st.toggle('plot 3d', value = False)
+    run_clustering = st.button('▶️ run clustering')
+
+
     if run_clustering:
         if st.session_state['status_pca_valid'] == False:
             st.session_state['DS'].compute_pca()
@@ -181,11 +184,14 @@ with tab3:
         df_meta = st.session_state['DS']._get_simplified_document_df().set_index('id')
         df_pca = df_pca.join(df_meta)
         print(f'ran clustering with n_clusters = {n_clusters}')
-        print(df_pca.columns)
         df_pca['label'] = [f'cluster {label+1}' for label in labels]
 
-        fig = px.scatter(data_frame=df_pca, x=df_pca.columns[0], y=df_pca.columns[1], color='label', text = 'basename')
-        st.plotly_chart(fig)
+        if plot_3d:
+            fig = px.scatter_3d(data_frame=df_pca, x=df_pca.columns[0], y=df_pca.columns[1], z = df_pca.columns[3], color='label', hover_data=['basename', df_pca.index])
+            st.plotly_chart(fig)
+        else:
+            fig = px.scatter(data_frame=df_pca, x=df_pca.columns[0], y=df_pca.columns[1], color='label', hover_data=['basename', df_pca.index])
+            st.plotly_chart(fig)
 
 
 

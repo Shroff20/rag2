@@ -1,5 +1,8 @@
 import os
-os.environ["OMP_NUM_THREADS"] = "1"  # avoid windows memory leak in sklearn kmeans, set before Kmeans importimport parsers
+
+os.environ["OMP_NUM_THREADS"] = (
+    "1"  # avoid windows memory leak in sklearn kmeans, set before Kmeans importimport parsers
+)
 import chromadb
 from sentence_transformers import SentenceTransformer
 from chromadb import Documents, EmbeddingFunction, Embeddings
@@ -134,17 +137,18 @@ class DataStore:
         self.pca = pca
 
         print("saved pca data to vector database")
-    
+
     def run_kmeans(self, n_clusters):
         pca_matrix = self._get_pca_matrix()
-        kmeans = KMeans(n_clusters=n_clusters, random_state=0, n_init="auto").fit(pca_matrix)
+        kmeans = KMeans(n_clusters=n_clusters, random_state=0, n_init="auto").fit(
+            pca_matrix
+        )
         labels = kmeans.labels_
         inertia = kmeans.inertia_
         self.KMeans = KMeans
         return labels, inertia, pca_matrix
 
-
-    def _get_pca_matrix(self, where = {"source_type": "full document"}):
+    def _get_pca_matrix(self, where={"source_type": "full document"}):
         data = self.collection.get(include=[], where=where)
         ids = data["ids"]
 
@@ -156,7 +160,11 @@ class DataStore:
             pca_matrix.append(pca)
 
         pca_matrix = np.vstack(pca_matrix)
-        df_pca = pd.DataFrame(pca_matrix, index = ids, columns = [f'pca_{x}' for x in range(pca_matrix.shape[1])])
+        df_pca = pd.DataFrame(
+            pca_matrix,
+            index=ids,
+            columns=[f"pca_{x}" for x in range(pca_matrix.shape[1])],
+        )
 
         return df_pca
 
@@ -217,7 +225,6 @@ def _results_to_df(results):
 
     N_results = len(results["ids"])
     df_results_list = []
-    print(results)
     for iresult in range(N_results):
         df_meta = pd.DataFrame.from_dict(results["metadatas"][iresult])
         df_ids = pd.DataFrame({"id": results["ids"][iresult]})
