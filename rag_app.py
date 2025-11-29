@@ -10,8 +10,8 @@ import os
 import plotly.express as px
 
 device = "cuda"
-default_database_dir = "./database_data"
-default_api_key = "AIzaSyCp2r7wKvf_aNLc1gxzJTdhLrVAwaS-0WM"
+default_database_dir = "D:/database"
+default_api_key = "AIzaSyCV0Otml_ldT7JPtHy_WhR8TpN3T-apyFg"
 allowed_filetpyes = [".pdf"]
 
 
@@ -20,6 +20,10 @@ def set_session_state(datadict: dict):
         if key not in st.session_state:
             print(f'setting {key} = {value}')
             st.session_state[key] = value
+
+
+def update_df_simplified():
+    st.session_state["df_simplified"] = st.session_state["DS"]._get_simplified_document_df()
 
 
 def update_document_count():
@@ -45,7 +49,8 @@ def initalize():
         "documents_to_process": [],
         "database_path" : default_database_dir,
         "api_key" : default_api_key,
-        "status_pca_valid" : False
+        "status_pca_valid" : False,
+        "status_df_valid" : False
     }
     set_session_state(config)
 
@@ -70,7 +75,12 @@ def process_files(files):
             tmp_file_path = os.path.join(temp_dir, file.name)
             with open(tmp_file_path, "wb") as f:
                 f.write(file.getvalue())
-            st.session_state["DS"].add_document(tmp_file_path)
+
+            try:
+                st.session_state["DS"].add_document(tmp_file_path)
+            except Exception as e:
+                print(f'could not process {file}', e)
+
             percent_complete = 100.0 * (i + 1) / N_files
             st.session_state["h_progress"].progress(
                 percent_complete / 100, text=f"Processing: {percent_complete:.1f}%"
@@ -142,7 +152,7 @@ with st.sidebar:
 
     with st.container( border = True):
         st.header("Database")
-        st.text_input(label = 'database path' , key = 'database_path', on_change=update_connection())
+        st.text_input(label = 'database path' , key = 'database_path', on_change=update_connection)
         st.button(label="⚠️ delete all documents", on_click=delete_all_collections)
     
     with st.container( border = True):
@@ -177,8 +187,10 @@ with tab3:
 
     if run_clustering:
         if st.session_state['status_pca_valid'] == False:
+            print('need to compute pca, starting')
             st.session_state['DS'].compute_pca()
             st.session_state['status_pca_valid'] = True
+            print('done computing pca')
 
         labels, inertia, df_pca = st.session_state['DS'].run_kmeans(n_clusters = n_clusters)
         df_meta = st.session_state['DS']._get_simplified_document_df().set_index('id')
@@ -188,6 +200,8 @@ with tab3:
 
         if plot_3d:
             fig = px.scatter_3d(data_frame=df_pca, x=df_pca.columns[0], y=df_pca.columns[1], z = df_pca.columns[3], color='label', hover_data=['basename', df_pca.index])
+            fig.update_layout(scene_camera=dict(eye=dict(x=1.5, y=1.5, z=1.0))) # Adjust eye coordinates
+            fig.update_layout(margin=dict(l=0, r=0, t=0, b=0)) # Set margins to zero
             st.plotly_chart(fig)
         else:
             fig = px.scatter(data_frame=df_pca, x=df_pca.columns[0], y=df_pca.columns[1], color='label', hover_data=['basename', df_pca.index])
@@ -196,7 +210,13 @@ with tab3:
 
 
 with tab4:
-    df = st.session_state["DS"]._get_simplified_document_df()
+
+    refresh = st.button(label = '🔄 refresh', on_click=update_df_simplified)
+
+    if 'df_simplified' not in st.session_state:
+        update_df_simplified()
+
+    df = st.session_state["df_simplified"]
 
     col_options = ['basename', 'document', 'id', 'creation_date', 'fullpath', 'author', 'page_lengths', 'file_ext', 'modification_date', 'upload_date']
     selcted_cols = st.multiselect("Select a column", col_options, default=["basename", "document"], key = 'h_multiselect')

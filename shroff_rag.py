@@ -132,8 +132,10 @@ class DataStore:
         # df_pca
 
         metadatas = [{"pca": json.dumps(x.tolist())} for x in list(pca_embeddings)]
-        self.collection.update(ids=ids, metadatas=metadatas)
 
+        max_batch_size = self.client.get_max_batch_size()  # cannot excede max batch size when accessing database
+        for i in range(0, len(ids), max_batch_size):
+            self.collection.update(ids=ids[i:i + max_batch_size], metadatas=metadatas[i:i + max_batch_size])
         self.pca = pca
 
         print("saved pca data to vector database")
@@ -273,7 +275,8 @@ Guidelines:
 - Answer the question based ONLY on the context below.
 - If the context does not contain the answer, say "I cannot answer this based on the provided documents."
 - Use direct quotations when possible, and include the full context.
-- If you can answer, at the end of your response, append the citation like this: (source: <filename>).
+- If you can answer, at the end of each section, append the citations like this: (source: <filename>).
+- Use multiple citations if needed.
 
 <context>
 {context_text}
