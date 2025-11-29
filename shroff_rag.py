@@ -56,7 +56,7 @@ class DataStore:
 
         metadata = convert_datatypes(metadata)
 
-        self.collection.add(
+        self.collection.upsert(
             ids=[
                 id,
             ],
@@ -144,8 +144,8 @@ class DataStore:
         return labels, inertia, pca_matrix
 
 
-    def _get_pca_matrix(self):
-        data = self.collection.get(include=[])
+    def _get_pca_matrix(self, where = {"source_type": "full document"}):
+        data = self.collection.get(include=[], where=where)
         ids = data["ids"]
 
         pca_matrix = []
@@ -217,7 +217,7 @@ def _results_to_df(results):
 
     N_results = len(results["ids"])
     df_results_list = []
-
+    print(results)
     for iresult in range(N_results):
         df_meta = pd.DataFrame.from_dict(results["metadatas"][iresult])
         df_ids = pd.DataFrame({"id": results["ids"][iresult]})
@@ -265,6 +265,7 @@ You are a technical assistant helping answer questions based strictly on the pro
 Guidelines:
 - Answer the question based ONLY on the context below.
 - If the context does not contain the answer, say "I cannot answer this based on the provided documents."
+- Use direct quotations when possible, and include the full context.
 - If you can answer, at the end of your response, append the citation like this: (source: <filename>).
 
 <context>

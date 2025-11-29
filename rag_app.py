@@ -4,11 +4,10 @@ import streamlit as st
 import pandas as pd
 import importlib
 import shroff_rag
-
 importlib.reload(shroff_rag)
 import tempfile
 import os
-
+import plotly.express as px
 
 device = "cuda"
 default_database_dir = "./database_data"
@@ -56,6 +55,7 @@ def initalize():
 
 def process_files(files):
     N_files = len(files)
+    st.session_state['status_pca_valid'] = False # added documents, so need to recompute pca
 
     starting_document_count = st.session_state["DS"].collection.metadata[
         "N_full_documents"
@@ -111,7 +111,7 @@ def set_api_key(env_var = "GOOGLE_API_KEY"):
 initalize()
 
 
-tab1, tab2, tab3, tab4 = st.tabs(["query", "search", "custer", "list documents"])
+tab1, tab2, tab3, tab4 = st.tabs(["query", "search", "cluster", "list documents"])
 
 with st.sidebar:
     h_document_count = st.metric(
@@ -170,7 +170,7 @@ with tab1:
     st.button("clear chat", on_click=clear_chat)
 
 with tab3:
-    n_clusters = st.slider(label = "# clusters", min_value=1, max_value = 20, value = 3)
+    n_clusters = st.slider(label = "# clusters", min_value=1, max_value = 10, value = 3)
     run_clustering = st.button('run clustering')
     if run_clustering:
         if st.session_state['status_pca_valid'] == False:
@@ -178,10 +178,16 @@ with tab3:
             st.session_state['status_pca_valid'] = True
 
         labels, inertia, df_pca = st.session_state['DS'].run_kmeans(n_clusters = n_clusters)
+        df_meta = st.session_state['DS']._get_simplified_document_df().set_index('id')
+        df_pca = df_pca.join(df_meta)
         print(f'ran clustering with n_clusters = {n_clusters}')
         print(df_pca.columns)
         df_pca['label'] = [f'cluster {label+1}' for label in labels]
-        st.scatter_chart(data=df_pca, x=df_pca.columns[0], y=df_pca.columns[1], x_label='pca component 1', y_label='pca component 2', color='label')
+
+        fig = px.scatter(data_frame=df_pca, x=df_pca.columns[0], y=df_pca.columns[1], color='label', text = 'basename')
+        st.plotly_chart(fig)
+
+
 
 with tab4:
     df = st.session_state["DS"]._get_simplified_document_df()
