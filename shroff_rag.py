@@ -76,20 +76,29 @@ class DataStore:
             chunks_ids, chunk_documents, chunk_metadatas = parsers.chunk_documents(
                 document, metadata, chunk_size, chunk_overlap
             )
-            self.collection.add(
+            self.collection.upsert(
                 ids=chunks_ids, documents=chunk_documents, metadatas=chunk_metadatas
             )
             print(f"   - added {len(chunks_ids)} chunks from {filename}")
         self._update_number_of_documents()
 
-    def search(self, query, k=10):
-        results = self.collection.query(
-            query_texts=[query],
-            n_results=k,
-        )
+    def search(self, query, k=10, **kwargs):
+        results = self.collection.query(query_texts=[query], n_results=k, **kwargs)
         df_results_list = _results_to_df(results)
         df_results = df_results_list[0]
         print(f"found {len(df_results)} similar documents")
+        return df_results
+
+    def search_by_id(self, id, k=10, **kwargs):
+        r = self.collection.get(id, include=["embeddings"])
+        embedding = r["embeddings"]
+        results = self.collection.query(
+            query_embeddings=embedding,
+            include=["distances", "metadatas", "documents"],
+            **kwargs,
+        )
+        df_results = _results_to_df(results)[0]
+        df_results = df_results.sort_values("distance")
         return df_results
 
     def query(self, query, k=10):
@@ -133,9 +142,14 @@ class DataStore:
 
         metadatas = [{"pca": json.dumps(x.tolist())} for x in list(pca_embeddings)]
 
-        max_batch_size = self.client.get_max_batch_size()  # cannot excede max batch size when accessing database
+        max_batch_size = (
+            self.client.get_max_batch_size()
+        )  # cannot excede max batch size when accessing database
         for i in range(0, len(ids), max_batch_size):
-            self.collection.update(ids=ids[i:i + max_batch_size], metadatas=metadatas[i:i + max_batch_size])
+            self.collection.update(
+                ids=ids[i : i + max_batch_size],
+                metadatas=metadatas[i : i + max_batch_size],
+            )
         self.pca = pca
 
         print("saved pca data to vector database")

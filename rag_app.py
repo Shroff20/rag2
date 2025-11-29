@@ -219,11 +219,29 @@ with tab4:
     df = st.session_state["df_simplified"]
 
     col_options = ['basename', 'document', 'id', 'creation_date', 'fullpath', 'author', 'page_lengths', 'file_ext', 'modification_date', 'upload_date']
-    selcted_cols = st.multiselect("Select a column", col_options, default=["basename", "document"], key = 'h_multiselect')
+    selcted_cols = st.multiselect("Select columns", col_options, default=["basename", "document"], key = 'h_multiselect')
 
     print(f"making dataframe with {selcted_cols}")
 
     allowed_cols = [col for col in selcted_cols if col in df.columns]
-    st.dataframe(df[allowed_cols])
 
-    st.write('Note: "document" column does not display the full text')
+    def selection_func():
+        with tab4:
+            selected_rows = st.session_state['selected_rows']
+            if selected_rows is not None:
+                print(selected_rows)
+                rows = list(selected_rows['selection']['rows'])
+
+                df = st.session_state["df_simplified"]
+
+                for row in rows:
+                    st.write(f"{df.loc[df.index[row],'basename']} has the following similar files")
+                    df_results = st.session_state['DS'].search_by_id(df.loc[row, 'id'], k =10, where = {'source_type':'full document'})
+                    st.write(df_results)
+
+
+
+
+    st.dataframe(df[allowed_cols], on_select= selection_func, selection_mode = 'multi-row', key = 'selected_rows')
+    
+   
