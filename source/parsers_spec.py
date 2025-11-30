@@ -7,6 +7,8 @@ from pypdf import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from typing import get_origin, Union, get_args
 import types
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+import copy
 
 
 def generate_document_uuid(basename, full_text, chunk_idx):
@@ -119,6 +121,54 @@ class ParserOuput:
         metadata.pop("document")  # keeping id in metadata
 
         return id, document, metadata
+
+
+def get_chunks_from_document(parsed_document : ParserOuput, chunk_size=2000, chunk_overlap=250):
+
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size, chunk_overlap=chunk_overlap
+    )
+
+    chunk_documents = text_splitter.split_text(parsed_document.document)
+    N_chunks = len(chunk_documents)
+    parsed_chunks = []
+
+    for i in range(N_chunks):
+        parsed_chunk = copy.deepcopy(parsed_document)
+        parsed_chunk.document = chunk_documents[i]
+        parsed_chunk.chunk_idx = i
+        parsed_chunk.N_chunks = N_chunks
+        parsed_chunk.id = generate_document_uuid(parsed_chunk.basename,parsed_chunk.document, parsed_chunk.chunk_idx)
+        parsed_chunk.source_type = 'chunked document'
+
+        parsed_chunks.append(parsed_chunk)
+
+    return parsed_chunks
+
+
+def parse_document(filename, chunk_document = True):
+
+    ext =  os.path.splitext(filename)[1]
+
+    #TODO: update this to a map or switch case
+    if ext == '.pdf':
+        D = parse_pdf(filename)
+    elif ext == '.txt':
+        D = parse_txt(filename)
+    elif ext == 'csv':
+        D = parse_csv(filename)
+    else:
+        raise(Exception(f'do not know how to parse {ext}'))
+    
+    if chunk_document:
+        chunks = get_chunks_from_document(D)
+    else:
+        chunks = []
+
+    all_data = [D,] + chunks
+
+    return all_data
+
 
 
 def parse_pdf(filename):
