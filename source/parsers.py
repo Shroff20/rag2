@@ -146,7 +146,7 @@ def get_chunks_from_document(parsed_document : ParserOuput, chunk_size=2000, chu
     return parsed_chunks
 
 
-def parse_document(filename, chunk_document = True):
+def parse_document(filename, chunk_document = True, chunk_size=2000, chunk_overlap=250):
 
     ext =  os.path.splitext(filename)[1]
 
@@ -161,7 +161,7 @@ def parse_document(filename, chunk_document = True):
         raise(Exception(f'do not know how to parse {ext}'))
     
     if chunk_document:
-        chunks = get_chunks_from_document(D)
+        chunks = get_chunks_from_document(D, chunk_size = chunk_size, chunk_overlap = chunk_overlap)
     else:
         chunks = []
 

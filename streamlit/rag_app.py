@@ -3,7 +3,7 @@
 import streamlit as st
 import pandas as pd
 import importlib
-import shroff_rag
+import source.shroff_rag as shroff_rag
 importlib.reload(shroff_rag)
 import tempfile
 import os
