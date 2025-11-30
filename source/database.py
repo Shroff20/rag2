@@ -17,6 +17,7 @@ import pandas as pd
 import json
 import ast
 import numpy as np
+import source.rag as rag
 
 pd.set_option("display.max_columns", None)
 pd.set_option("display.width", 1000)
@@ -100,7 +101,7 @@ class VectorDatabase:
             self.llm_model = init_chat_model("google_genai:gemini-2.5-flash-lite")
 
         df_results = self.search(query=query, k=k)
-        llm_query = build_rag_prompt(query, df_results)
+        llm_query = rag.build_rag_prompt(query, df_results)
         response = self.llm_model.invoke(llm_query)
         # print(response)
         return response
@@ -117,7 +118,10 @@ class VectorDatabase:
     def info(self):
         collections = self.client.list_collections()
         print(f"collections: {collections}")
-
+        for collection in collections:
+            num_records = collection.count()
+            print(f'{collection} has {num_records} records')
+                  
     # def compute_pca(self, n_components=None):
 
     #     data = self.collection.get(include=["embeddings"])
@@ -182,6 +186,8 @@ class VectorDatabase:
             r = self.collection.get(where={"source_type": "full document"}, include=[])
             N_documents = len(r["ids"])
             self.collection.metadata["N_full_documents"] = N_documents
+            num_records = self.collection.count()
+            self.collection.metadata["N_records"] = num_records
 
 
     def _get_simplified_document_df(self, max_doc_length=100):
