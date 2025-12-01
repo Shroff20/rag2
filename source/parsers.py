@@ -34,8 +34,6 @@ class ParserOuput:
     page_lengths: tuple[int] = ()
 
     source_type: str = "full document"
-    pca: tuple[float] = ()
-    tfidf: tuple[float] = ()
     chunk_idx: int = -1  # use -1 for full document
     N_chunks: int = 0  # total number of chunks
 
