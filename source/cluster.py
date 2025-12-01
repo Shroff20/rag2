@@ -1,7 +1,7 @@
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
-
-
+import numpy as np
+import pandas as pd
 
 class ClusterAnalyis():
 
@@ -11,7 +11,7 @@ class ClusterAnalyis():
         pass
 
 
-    def calculate_pca(self, n_components = None):
+    def calculate_pca(self, n_components = None, save = True):
 
         data = self.vector_database.collection.get(include=["embeddings"])
         ids = data["ids"]
@@ -24,20 +24,30 @@ class ClusterAnalyis():
 
         metadatas = [{"pca_embedding": str(x.tolist())} for x in list(pca_embeddings)]
 
-        self.vector_database.update_metadata(ids, metadatas)
+        if save:
+            self.vector_database.update_metadata(ids, metadatas)
+        self.pca = pca
 
-    def perform_kmeans_clustering(self, n_clusters = 5):
+        return pca_embeddings
 
-        data = self.vector_database.collection.get(include=["embeddings"])
-        ids = data["ids"]
-        embeddings = data["embeddings"]
+
+    def perform_kmeans_clustering(self, n_clusters = 3, save = True):
+
+        df = self.vector_database.get(include=["metadatas"], keep_cols =['id', 'pca_embedding'])
+        ids = df["id"].tolist()
+        embeddings = np.vstack(df['pca_embedding'])
+        del df
         print(f"embeddings matrix is {embeddings.shape}")
 
         kmeans = KMeans(n_clusters=n_clusters, random_state=0)
         cluster_labels = kmeans.fit_predict(embeddings)
-        print(f"cluster labels length is {len(cluster_labels)}")
+        print(f'performed kmeans clustering with {n_clusters} clusters')
+        print(pd.Series(cluster_labels, name = 'kmeans_cluster_idx').value_counts(sort = False))
+        
 
         metadatas = [{"kmeans_cluster_idx": int(x)} for x in list(cluster_labels)]
+        self.kmeans = kmeans
 
-        self.vector_database.update_metadata(ids, metadatas)
+        if save:
+            self.vector_database.update_metadata(ids, metadatas)
     

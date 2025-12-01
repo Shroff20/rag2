@@ -275,6 +275,7 @@ def _results_to_df(results, document_length_limit = None, idx = 0, keep_cols = N
     type_converter['modification_date'] = lambda x:  pd.to_datetime(x, format = datetime_format)
     type_converter['page_lengths'] = lambda x:  x.apply(ast.literal_eval)
     type_converter['document'] = lambda x:  x.str[:document_length_limit]
+    type_converter['pca_embedding'] = lambda x: x.apply(ast.literal_eval).apply(lambda x: np.array(x, dtype=np.float32))
     #type_converter['embedding'] = lambda x:  x.astype(np.float32)
 
     for col in df.columns:
