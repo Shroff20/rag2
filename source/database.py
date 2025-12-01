@@ -92,6 +92,7 @@ class VectorDatabase:
         )
         df_results = _results_to_df(results[0])
         df_results = df_results.sort_values("distance")
+        print(f"found {len(df_results)} similar documents")
         return df_results
 
     def query(self, query, k=10):
@@ -120,6 +121,31 @@ class VectorDatabase:
         for collection in collections:
             num_records = collection.count()
             print(f'{collection} has {num_records} records')
+
+
+
+    def chunked_get(self, limit = 100, include = ["documents", "metadatas", "embeddings"],  get_kwargs = {}, keep_cols = None):
+
+        offset = 0
+        total_items = self.collection.count()
+
+        df_results = []
+        while offset < total_items:
+            chunk_results = self.collection.get(
+                offset=offset,
+                limit=limit,
+                include=include, **get_kwargs  # Specify what to retrieve
+            )
+
+            df_results_chunk = _results_to_df(chunk_results, keep_cols= keep_cols)
+            df_results.append(df_results_chunk)
+            offset += limit
+
+        df_results = pd.concat(df_results, axis = 0)
+
+        return df_results
+    
+    
                   
     # def compute_pca(self, n_components=None):
 
@@ -189,36 +215,11 @@ class VectorDatabase:
             self.collection.metadata["N_records"] = num_records
 
 
-    def _get_simplified_document_df(self, max_doc_length=100):
-
-        results = self.collection.get(where={"chunk_idx": -1})
-
-        documents = results["documents"]
-        truncated_documents = [
-            s[:max_doc_length] + "... (truncated)" for s in documents
-        ]
-
-        df_meta = pd.DataFrame.from_dict(results["metadatas"])
-        df_ids = pd.DataFrame({"id": results["ids"]})
-        df_documents = pd.DataFrame({"document": truncated_documents})
-        df_results = pd.concat(
-            [df_ids, df_meta, df_documents],
-            axis=1,
-        )
-
-        drop_cols = ["chunk_idx", "hash", "source_type", "N_chunks", "source_id", "pca"]
-
-        df_results = df_results.drop(columns=drop_cols, errors="ignore")
-
-        df_results = _reorder_cols(df_results, ["basename", "document"])
-
-        return df_results
-
 
 class CustomEmbeddingFunction(EmbeddingFunction):
     def __init__(self, device):
         self.model = SentenceTransformer(
-            "all-MiniLM-L6-v2", model_kwargs={"torch_dtype": "float16"}, device=device
+            "all-MiniLM-L6-v2", model_kwargs={"torch_dtype": "float32"}, device=device
         )
         self.name = "all-MiniLM-L6-v2"
 
@@ -240,7 +241,7 @@ def _results_to_df(results, document_length_limit = None, idx = 0, keep_cols = N
     if results.get('distances') is not None:
         d['distance'] = results['distances'][slicer]
     if results.get('ids') is not None:
-        d['id'] = results['ids'][idx][slicer]
+        d['id'] = results['ids'][slicer]
     if results.get('documents') is not None:  
         d['document'] = results['documents'][slicer]
     if results.get('embeddings') is not None:
@@ -251,7 +252,7 @@ def _results_to_df(results, document_length_limit = None, idx = 0, keep_cols = N
         df_metadata = pd.DataFrame(results['metadatas'][slicer], index = range(len(df))).drop(columns = 'id')
         df = pd.concat([df, df_metadata], axis = 1).reset_index(drop = True)
 
-    datetime_format =  r"%Y-%m-%d %H:%M:%S.%f"
+    datetime_format =  r"%Y-%m-%d %H:%M:%S"
     type_converter = {}
     type_converter['creation_date'] = lambda x:  pd.to_datetime(x, format = datetime_format)
     type_converter['upload_date'] = lambda x:  pd.to_datetime(x, format = datetime_format)

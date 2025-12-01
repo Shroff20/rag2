@@ -111,7 +111,10 @@ class ParserOuput:
         allowed_types = [str, int, float]
 
         for key, value in metadata.items():
-            if type(metadata[key]) not in allowed_types:
+            if type(metadata[key]) == datetime.datetime:
+                metadata[key] = metadata[key].strftime("%Y-%m-%d %H:%M:%S")
+
+            elif type(metadata[key]) not in allowed_types:
                 metadata[key] = str(
                     value
                 )  # this seems to convert datetime well (instead of json.dumps)
