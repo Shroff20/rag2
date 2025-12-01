@@ -78,8 +78,7 @@ class VectorDatabase:
 
     def search(self, query, k=10, **kwargs):
         results = self.collection.query(query_texts=[query], n_results=k, **kwargs)
-        df_results_list = _results_to_df(results)
-        df_results = df_results_list[0]
+        df_results = _results_to_df(results)
         print(f"found {len(df_results)} similar documents")
         return df_results
 
@@ -91,7 +90,7 @@ class VectorDatabase:
             include=["distances", "metadatas", "documents"],
             **kwargs,
         )
-        df_results = _results_to_df(results)[0]
+        df_results = _results_to_df(results[0])
         df_results = df_results.sort_values("distance")
         return df_results
 
@@ -229,27 +228,46 @@ class CustomEmbeddingFunction(EmbeddingFunction):
 
 
 
-def _results_to_df(results):
 
-    N_results = len(results["ids"])
-    df_results_list = []
-    for iresult in range(N_results):
-        df_meta = pd.DataFrame.from_dict(results["metadatas"][iresult])
-        df_ids = pd.DataFrame({"id": results["ids"][iresult]})
-        df_distances = pd.DataFrame({"distance": results["distances"][iresult]})
-        df_documents = pd.DataFrame({"document": results["documents"][iresult]})
+def _results_to_df(results, document_length_limit = None, idx = 0, keep_cols = None):
+    
+    if  type(results['ids'][0]) == list:  # we have a list of results
+        slicer = idx
+    else:
+        slicer = slice(None)
 
-        df_results = pd.concat(
-            [df_distances, df_ids, df_meta, df_documents],
-            axis=1,
-        )
+    d = {}
+    if results.get('distances') is not None:
+        d['distance'] = results['distances'][slicer]
+    if results.get('ids') is not None:
+        d['id'] = results['ids'][idx][slicer]
+    if results.get('documents') is not None:  
+        d['document'] = results['documents'][slicer]
+    if results.get('embeddings') is not None:
+        d['embedding'] = [row for row in results['embeddings'][slicer]]
+    df = pd.DataFrame.from_dict(d)
 
-        cols_to_move_to_front = ["distance", "basename"]
-        df_results = _reorder_cols(df_results, cols_to_move_to_front)
+    if results.get('metadatas') is not None:
+        df_metadata = pd.DataFrame(results['metadatas'][slicer], index = range(len(df))).drop(columns = 'id')
+        df = pd.concat([df, df_metadata], axis = 1).reset_index(drop = True)
 
-        df_results_list.append(df_results)
+    datetime_format =  r"%Y-%m-%d %H:%M:%S.%f"
+    type_converter = {}
+    type_converter['creation_date'] = lambda x:  pd.to_datetime(x, format = datetime_format)
+    type_converter['upload_date'] = lambda x:  pd.to_datetime(x, format = datetime_format)
+    type_converter['modification_date'] = lambda x:  pd.to_datetime(x, format = datetime_format)
+    type_converter['page_lengths'] = lambda x:  x.apply(ast.literal_eval)
+    type_converter['document'] = lambda x:  x.str[:document_length_limit]
 
-    return df_results_list
+    for col in df.columns:
+        if col in type_converter.keys():
+            df[col] = type_converter[col](df[col])
+
+    if keep_cols is not None:
+        cols = [col for col in df.columns if col in keep_cols]
+        df = df[cols]
+
+    return df
 
 
 def _reorder_cols(df, cols_to_move_to_front):
