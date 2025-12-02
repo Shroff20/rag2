@@ -151,8 +151,10 @@ class VectorDatabase:
             df_results_chunk = _results_to_df(chunk_results, keep_cols= keep_cols)
             df_results.append(df_results_chunk)
             offset += processing_limit
-
-        df_results = pd.concat(df_results, axis = 0)
+        if len(df_results) > 0:
+             df_results = pd.concat(df_results, axis = 0)
+        else:
+            df_results = pd.DataFrame()
 
         return df_results
     
