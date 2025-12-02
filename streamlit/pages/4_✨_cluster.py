@@ -24,7 +24,7 @@ sf.make_sidebar()
 with st.sidebar.container( border = True):
     st.markdown('## Settings')
     n_clusters = st.slider(label = "# clusters", min_value=1, max_value = 10, value = 3)
-    plot_3d = st.toggle('plot 3d', value = False)
+    plot_3d = st.toggle('plot 3d', value = True)
     autorun = st.toggle('autorun', value = True)
 
 
