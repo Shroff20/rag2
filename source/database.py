@@ -58,25 +58,34 @@ class VectorDatabase:
 
         all_data = []
         for filename in filenames:
-            data = parsers.parse_document(filename)
-            all_data += data
+            # check if document already has been added, skip if so
+            id = parsers.generate_document_uuid_from_path(filename)
+            r = self.collection.get(ids = id, include = [])
+            id_exists = len(r['ids'])>0
+            if id_exists:
+                print(f"- [{filename}] already exists in database, skipping")
+            else:
+                data = parsers.parse_document(filename)
+                all_data += data
 
-        all_data = [x.convert_to_vector_database_format() for x in all_data]  #(id, document, metadata)
-        all_data =  list(map(list, zip(*all_data)))
+        if len(all_data) > 0: # this code will fail if there are no new documents to add
 
-        ids = all_data[0]
-        documents = all_data[1]
-        metadatas = all_data[2]
+            all_data = [x.convert_to_vector_database_format() for x in all_data]  #(id, document, metadata)
+            all_data =  list(map(list, zip(*all_data)))
 
-        self.collection.upsert(
-            ids=ids, documents = documents, metadatas = metadatas)
-        
-        N_documents = len(filenames)
-        N_chunks = len(ids) - N_documents
+            ids = all_data[0]
+            documents = all_data[1]
+            metadatas = all_data[2]
 
-        print(f"- added {N_documents} documents, {N_chunks} chunks")
+            self.collection.upsert(
+                ids=ids, documents = documents, metadatas = metadatas)
+            
+            N_documents = len(filenames)
+            N_chunks = len(ids) - N_documents
 
-        self._update_number_of_documents()
+            print(f"- added {N_documents} documents, {N_chunks} chunks")
+            self._update_number_of_documents()
+
 
     def search(self, query, k=10, **kwargs):
         results = self.collection.query(query_texts=[query], n_results=k, **kwargs)
@@ -161,67 +170,7 @@ class VectorDatabase:
 
         print(f"updated metadata for {len(ids)} records for the following keys: {updated_keys}")
     
-
-                  
-    # def compute_pca(self, n_components=None):
-
-    #     data = self.collection.get(include=["embeddings"])
-
-    #     ids = data["ids"]
-    #     embeddings = data["embeddings"]
-    #     print(f"embeddings matrix is {embeddings.shape}")
-    #     pca = PCA(n_components=n_components)
-    #     pca_embeddings = pca.fit_transform(embeddings)
-    #     print(f"pca matrix is {pca_embeddings.shape}")
-
-    #     # columns = [f'pca_{x}' for x in range(pca_embeddings.shape[1])]
-    #     # df_pca  = pd.DataFrame(pca_embeddings, index = ids, columns = columns)
-    #     # df_pca
-
-    #     metadatas = [{"pca": json.dumps(x.tolist())} for x in list(pca_embeddings)]
-
-    #     max_batch_size = (
-    #         self.client.get_max_batch_size()
-    #     )  # cannot excede max batch size when accessing database
-    #     for i in range(0, len(ids), max_batch_size):
-    #         self.collection.update(
-    #             ids=ids[i : i + max_batch_size],
-    #             metadatas=metadatas[i : i + max_batch_size],
-    #         )
-    #     self.pca = pca
-
-    #     print("saved pca data to vector database")
-
-    # def run_kmeans(self, n_clusters):
-    #     pca_matrix = self._get_pca_matrix()
-    #     kmeans = KMeans(n_clusters=n_clusters, random_state=0, n_init="auto").fit(
-    #         pca_matrix
-    #     )
-    #     labels = kmeans.labels_
-    #     inertia = kmeans.inertia_
-    #     self.KMeans = KMeans
-    #     return labels, inertia, pca_matrix
-
-    # def _get_pca_matrix(self, where={"source_type": "full document"}):
-    #     data = self.collection.get(include=[], where=where)
-    #     ids = data["ids"]
-
-    #     pca_matrix = []
-
-    #     for id in ids:
-    #         pca = self.collection.get(ids=id).get("metadatas")[0]["pca"]
-    #         pca = np.array(ast.literal_eval(pca), dtype=np.float16)
-    #         pca_matrix.append(pca)
-
-    #     pca_matrix = np.vstack(pca_matrix)
-    #     df_pca = pd.DataFrame(
-    #         pca_matrix,
-    #         index=ids,
-    #         columns=[f"pca_{x}" for x in range(pca_matrix.shape[1])],
-    #     )
-
-    #     return df_pca
-
+    
     def _update_number_of_documents(self):
         if self.collection is not None:
             r = self.collection.get(where={"source_type": "full document"}, include=[])

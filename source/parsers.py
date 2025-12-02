@@ -11,15 +11,21 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 import copy
 
 
-def generate_document_uuid(basename, full_text, chunk_idx):
+def generate_document_uuid(basename, file_hash, chunk_idx):
     uuid_document = str(
-        uuid.uuid5(uuid.NAMESPACE_URL, basename + full_text + str(chunk_idx))
+        uuid.uuid5(uuid.NAMESPACE_URL, basename + str(file_hash) + str(chunk_idx))
     )
+    return uuid_document
+
+def generate_document_uuid_from_path(filename):
+    basename = os.path.basename(filename)
+    file_hash = sha256sum(filename)
+    chunk_idx = -1 # -1 for full document
+    uuid_document = generate_document_uuid(basename, file_hash, chunk_idx)
     return uuid_document
 
 
 def sha256sum(filename):
-    print(filename)
     with open(filename, "rb", buffering=0) as f:
         return str(hashlib.file_digest(f, "sha256").hexdigest())
 
@@ -52,11 +58,11 @@ class ParserOuput:
             setattr(self, fieldname, value)
 
     def __post_init__(self):
+        self.set_field_if_None("file_hash", sha256sum(self.fullpath))
         self.set_field_if_None("basename", os.path.basename(self.fullpath))
         self.set_field_if_None(
-            "id", generate_document_uuid(self.basename, self.document, self.chunk_idx)
+            "id", generate_document_uuid(self.basename, self.file_hash, self.chunk_idx)
         )
-        self.set_field_if_None("file_hash", sha256sum(self.fullpath))
         self.set_field_if_None("title", self.basename)
         self.set_field_if_None("source_id", self.id)
         self.set_field_if_None("upload_date", datetime.datetime.now())
@@ -148,7 +154,7 @@ def get_chunks_from_document(parsed_document : ParserOuput, chunk_size=2000, chu
 
 
 def parse_document(filename, chunk_document = True, chunk_size=2000, chunk_overlap=250):
-
+    print(f'parsing [{filename}]')
     ext =  os.path.splitext(filename)[1]
 
     #TODO: update this to a map or switch case
