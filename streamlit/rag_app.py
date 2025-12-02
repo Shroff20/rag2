@@ -245,3 +245,4 @@ with tab4:
     st.dataframe(df[allowed_cols], on_select= selection_func, selection_mode = 'multi-row', key = 'selected_rows')
     
    
+ 

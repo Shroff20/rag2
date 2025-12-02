@@ -31,7 +31,7 @@ class ClusterAnalyis():
         return pca_embeddings
 
 
-    def perform_kmeans_clustering(self, n_clusters = 3, save = True):
+    def perform_kmeans_clustering(self, n_clusters = 3, save = True, get_kwargs={"where": {"source_type": "full document"}}):
 
         df = self.vector_database.get(include=["metadatas"], keep_cols =['id', 'pca_embedding'])
         ids = df["id"].tolist()

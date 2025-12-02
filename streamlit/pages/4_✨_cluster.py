@@ -23,13 +23,13 @@ sf.make_sidebar()
 
 with st.sidebar.container( border = True):
     st.markdown('## Settings')
-    n_clusters = st.slider(label = "# clusters", min_value=1, max_value = 10, value = 3)
+    n_clusters = st.slider(label = "\# clusters", min_value=1, max_value = 10, value = 3)
     plot_3d = st.toggle('plot 3d', value = True)
     autorun = st.toggle('autorun', value = True)
 
 
 
-run_clustering = st.button('▶️ run clustering')
+run_clustering = st.button('▶️ run clustering', disabled = autorun, help = 'if autorun is enabled on the sidebar, clustering will run automatically')
 
 if run_clustering or autorun:
 
@@ -41,10 +41,15 @@ if run_clustering or autorun:
 
     CA.perform_kmeans_clustering(n_clusters = n_clusters)
     
-    df = st.session_state['VD'].get(keep_cols = ['id', 'basename', 'kmeans_cluster_idx', 'pca_embedding'])
-    for i in range(3):
+    df = st.session_state['VD'].get(keep_cols = ['id', 'basename', 'kmeans_cluster_idx', 'pca_embedding'], get_kwargs={"where": {"source_type": "full document"}})
+
+    pca_dims = len(df['pca_embedding'][0])
+    print(f'pca_dims = {pca_dims}')
+
+    for i in range(pca_dims):
         df[f'pca_{i}'] = df['pca_embedding'].apply(lambda x: x[i])
     df['label'] = [f'cluster {label}' for label in  df['kmeans_cluster_idx']]
+    df = df.drop(columns = ['pca_embedding'])
 
     if plot_3d:
         fig = px.scatter_3d(data_frame=df, x='pca_0', y='pca_1', z = 'pca_2', color='label', hover_data=['basename'])
@@ -61,3 +66,10 @@ if run_clustering or autorun:
     #st.dataframe(df)
 
     
+    st.download_button(
+            label="download .csv cluster results",
+            data=df.to_csv(index=False),
+            file_name=f"cluster_n-{n_clusters}.csv",
+            mime="text/csv",
+            icon=":material/download:",
+        )
