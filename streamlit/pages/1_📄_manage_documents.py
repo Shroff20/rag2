@@ -87,11 +87,15 @@ with st.container( border = True):
     st.button(label="⚠️ delete all documents", on_click=delete_all_collections)
 
 with st.container( border = True):
-
+    st.markdown("### List files")
     if 'df_documents' not in st.session_state:
         sf.update_df_documents()
+
+    col_options = ['basename', 'document', 'id', 'creation_date', 'fullpath', 'author', 'page_lengths', 'file_ext', 'modification_date', 'upload_date']
+    selcted_cols = st.multiselect("Select columns", col_options, default=["basename", "document"], key = 'h_multiselect')
 
     refresh = st.button(label = '🔄 refresh', on_click=sf.update_df_documents)
 
     if refresh:
-        st.dataframe(st.session_state['df_documents'])
+        allowed_cols = [col for col in selcted_cols if col in st.session_state['df_documents']]
+        st.dataframe(st.session_state['df_documents'].loc[:, allowed_cols])

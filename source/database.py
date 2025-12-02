@@ -135,7 +135,7 @@ class VectorDatabase:
 
 
 
-    def get(self, processing_limit = 100, include = ["documents", "metadatas", "embeddings"],  get_kwargs = {}, keep_cols = None):
+    def get(self, processing_limit = 100, include = ["documents", "metadatas", "embeddings"],  get_kwargs = {}, keep_cols = None, document_length_limit = None):
 
         offset = 0
         total_items = self.collection.count()
@@ -148,7 +148,7 @@ class VectorDatabase:
                 include=include, **get_kwargs  # Specify what to retrieve
             )
 
-            df_results_chunk = _results_to_df(chunk_results, keep_cols= keep_cols)
+            df_results_chunk = _results_to_df(chunk_results, keep_cols= keep_cols, document_length_limit= document_length_limit)
             df_results.append(df_results_chunk)
             offset += processing_limit
         if len(df_results) > 0:
