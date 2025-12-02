@@ -50,6 +50,7 @@ if run_clustering or autorun:
         df[f'pca_{i}'] = df['pca_embedding'].apply(lambda x: x[i])
     df['label'] = [f'cluster {label}' for label in  df['kmeans_cluster_idx']]
     df = df.drop(columns = ['pca_embedding'])
+    df = df.sort_values(by = ['label', 'basename'])
 
     if plot_3d:
         fig = px.scatter_3d(data_frame=df, x='pca_0', y='pca_1', z = 'pca_2', color='label', hover_data=['basename'])
@@ -60,7 +61,10 @@ if run_clustering or autorun:
         fig = px.scatter(data_frame=df, x='pca_0', y='pca_1', color='label', hover_data=['basename'])
         st.plotly_chart(fig)
 
-    df_counts = pd.Series(df['label'], name = 'cluster').value_counts(sort = False).sort_index()
+    def groupby_func(df):
+        return pd.Series({'count': len(df), 'documents': list(df['basename'])})
+
+    df_counts = df.groupby('label').apply(lambda x: groupby_func(x), include_groups = False).reset_index()
     st.dataframe(df_counts, width='content')
 
     #st.dataframe(df)
