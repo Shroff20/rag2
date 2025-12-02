@@ -57,6 +57,7 @@ def _get_defaults():
     d["allowed_filetpyes"] = [".pdf", ".txt", ".csv"]
     d["documents_to_process"] = []
     d["messages"] = []
+    d["status_pca_valid"] = False
     return d
 
 
@@ -73,4 +74,4 @@ def initialize_app():
     _set_session_state(d)
     if "VD" not in st.session_state:
         _update_connection()
-    set_api_key()
+    set_api_key()  # TODO make this only happen once

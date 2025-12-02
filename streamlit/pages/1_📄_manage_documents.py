@@ -55,6 +55,7 @@ def process_files(files):
             print("count", current_document_count)
 
             sf.update_document_count()
+            st.session_state['status_pca_valid'] = False  # added documents, so need to recompute pca
 
 def delete_all_collections():
     st.session_state["VD"].clear_collections()
