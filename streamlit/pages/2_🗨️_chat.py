@@ -38,6 +38,6 @@ if prompt is not None:
     st.chat_message("assistant").markdown(response)
 st.button("clear chat", on_click=clear_chat)
 
-with st.sidebar.container( border = True):
+with st.sidebar.container( border = True):  #TODO: make this persistent across pages
     st.markdown('## Settings')
     api_key = st.text_input(label = 'API key', key = 'api_key', value = st.session_state['api_key'],  on_change=sf.set_api_key, help = 'enter your API key for the language model')

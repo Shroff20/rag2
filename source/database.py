@@ -1,20 +1,16 @@
 import os
-
+import sys
+sys.path.append("..")
 os.environ["OMP_NUM_THREADS"] = (
     "1"  # avoid windows memory leak in sklearn kmeans, set before Kmeans importimport parsers
 )
 import chromadb
 from sentence_transformers import SentenceTransformer
 from chromadb import Documents, EmbeddingFunction, Embeddings
-import json
 import pandas as pd
 from langchain.chat_models import init_chat_model
 import source.parsers as parsers
-import os
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
 import pandas as pd
-import json
 import ast
 import numpy as np
 import source.rag as rag
@@ -101,7 +97,7 @@ class VectorDatabase:
             include=["distances", "metadatas", "documents"],
             **kwargs,
         )
-        df_results = _results_to_df(results[0])
+        df_results = _results_to_df(results)
         df_results = df_results.sort_values("distance")
         print(f"found {len(df_results)} similar documents")
         return df_results
@@ -147,9 +143,9 @@ class VectorDatabase:
                 limit=processing_limit,
                 include=include, **get_kwargs  # Specify what to retrieve
             )
-
-            df_results_chunk = _results_to_df(chunk_results, keep_cols= keep_cols, document_length_limit= document_length_limit)
-            df_results.append(df_results_chunk)
+            if len(chunk_results['ids']) >0:
+                df_results_chunk = _results_to_df(chunk_results, keep_cols= keep_cols, document_length_limit= document_length_limit)
+                df_results.append(df_results_chunk)
             offset += processing_limit
         if len(df_results) > 0:
              df_results = pd.concat(df_results, axis = 0)
@@ -227,6 +223,9 @@ def _results_to_df(results, document_length_limit = None, idx = 0, keep_cols = N
     type_converter['page_lengths'] = lambda x:  x.apply(ast.literal_eval)
     type_converter['document'] = lambda x:  x.str[:document_length_limit]
     type_converter['pca_embedding'] = lambda x: x.apply(ast.literal_eval).apply(lambda x: np.array(x, dtype=np.float32))
+    #type_converter['pca_embedding'] = lambda x: np.fromstring(x, sep = ',', dtype = np.float32)
+
+
     #type_converter['embedding'] = lambda x:  x.astype(np.float32)
 
     for col in df.columns:

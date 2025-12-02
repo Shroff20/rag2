@@ -4,6 +4,7 @@ sys.path.append("..")
 import streamlit as st
 import source.database as database
 import os
+import pandas as pd
 
 def make_sidebar():
     with st.sidebar:
@@ -25,7 +26,7 @@ def update_document_count():
 
 
 def update_df_documents():
-
+    print('updating df_documents')
     df_documents =  st.session_state["VD"].get(
         include=["metadatas", "documents"],
         document_length_limit=100,
@@ -34,7 +35,7 @@ def update_df_documents():
     df_documents = database._reorder_cols(df_documents, ["basename", "id", "document_type", "document"])
 
     st.session_state["df_documents"] = df_documents
-
+    st.session_state["status_df_documents_valid"] = True
 
 def set_api_key(env_var = "GOOGLE_API_KEY"):
     os.environ[env_var] = st.session_state['api_key']
@@ -58,6 +59,8 @@ def _get_defaults():
     d["documents_to_process"] = []
     d["messages"] = []
     d["status_pca_valid"] = False
+    d["status_df_documents_valid"] = False
+    d["df_search_results"] = pd.DataFrame()
     return d
 
 

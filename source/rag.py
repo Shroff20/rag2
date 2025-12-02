@@ -18,7 +18,7 @@ def build_rag_prompt(query : str, df_results: pd.DataFrame):
 You are a technical assistant helping answer questions based strictly on the provided documents.
 
 Guidelines:
-- Answer the question based ONLY on the context below.
+- Answer the question based on the context below.
 - If the context does not contain the answer, say "I cannot answer this based on the provided documents."
 - Use direct quotations when possible, and include the full context.
 - If you can answer, at the end of each section, append the citations like this: (source: <filename>).

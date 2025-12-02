@@ -17,6 +17,7 @@ st.set_page_config(
 
 st.title("Main Page")
 
+st.text("Welcome to DocHunt Local!")
 
 sf.initialize_app()
 sf.make_sidebar()

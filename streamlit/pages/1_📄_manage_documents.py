@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append("..")
 import streamlit as st
 import streamlit_functions as sf
@@ -6,6 +7,7 @@ import tempfile
 import os
 import source.database as database
 import importlib
+
 importlib.reload(database)
 importlib.reload(sf)
 
@@ -15,7 +17,7 @@ st.set_page_config(
     page_icon="📄",
 )
 
-st.title("Manage Documents")
+st.title("Manage documents")
 sf.initialize_app()
 sf.make_sidebar()
 
@@ -55,12 +57,19 @@ def process_files(files):
             print("count", current_document_count)
 
             sf.update_document_count()
-            st.session_state['status_pca_valid'] = False  # added documents, so need to recompute pca
+            st.session_state["status_pca_valid"] = (
+                False  # added documents, so need to recompute pca
+            )
+            st.session_state["status_df_documents_valid"] = False
+
 
 def delete_all_collections():
     st.session_state["VD"].clear_collections()
     sf.update_document_count()
 
+
+with st.sidebar.container(border=True):
+    st.markdown("## Settings")
 
 
 with st.form("add-form", clear_on_submit=True):
@@ -81,20 +90,38 @@ with st.form("add-form", clear_on_submit=True):
         process_files(files=h_uploaded_files)
 
 
-with st.container( border = True):
+with st.container(border=True):
     st.markdown("### Delete files")
     st.button(label="⚠️ delete all documents", on_click=delete_all_collections)
 
-with st.container( border = True):
+with st.container(border=True):
     st.markdown("### List files")
-    if 'df_documents' not in st.session_state:
+    if "df_documents" not in st.session_state:
         sf.update_df_documents()
 
-    col_options = ['basename', 'document', 'id', 'creation_date', 'fullpath', 'author', 'page_lengths', 'file_ext', 'modification_date', 'upload_date']
-    selcted_cols = st.multiselect("Select columns", col_options, default=["basename", "document"], key = 'h_multiselect')
+    col_options = [
+        "basename",
+        "document",
+        "id",
+        "creation_date",
+        "fullpath",
+        "author",
+        "page_lengths",
+        "file_ext",
+        "modification_date",
+        "upload_date",
+    ]
+    selcted_cols = st.multiselect(
+        "Select columns",
+        col_options,
+        default=["basename", "document"],
+        key="h_multiselect",
+    )
 
-    refresh = st.button(label = '🔄 refresh', on_click=sf.update_df_documents)
+    refresh = st.button(label="🔄 refresh", on_click=sf.update_df_documents)
 
     if refresh:
-        allowed_cols = [col for col in selcted_cols if col in st.session_state['df_documents']]
-        st.dataframe(st.session_state['df_documents'].loc[:, allowed_cols])
+        allowed_cols = [
+            col for col in selcted_cols if col in st.session_state["df_documents"]
+        ]
+        st.dataframe(st.session_state["df_documents"].loc[:, allowed_cols])
