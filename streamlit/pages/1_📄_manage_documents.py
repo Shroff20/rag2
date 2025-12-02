@@ -15,9 +15,7 @@ st.set_page_config(
     page_icon="📄",
 )
 
-
 st.title("Manage Documents")
-
 sf.initialize_app()
 sf.make_sidebar()
 

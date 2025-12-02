@@ -3,7 +3,7 @@ import sys
 sys.path.append("..")
 import streamlit as st
 import source.database as database
-
+import os
 
 def make_sidebar():
     with st.sidebar:
@@ -36,6 +36,12 @@ def update_df_documents():
     st.session_state["df_documents"] = df_documents
 
 
+def set_api_key(env_var = "GOOGLE_API_KEY"):
+    os.environ[env_var] = st.session_state['api_key']
+    print(f"set {env_var}={st.session_state['api_key']}")
+
+
+
 def _set_session_state(datadict: dict):
     for key, value in datadict.items():
         if key not in st.session_state:
@@ -50,6 +56,7 @@ def _get_defaults():
     d["api_key"] = "AIzaSyCV0Otml_ldT7JPtHy_WhR8TpN3T-apyFg"
     d["allowed_filetpyes"] = [".pdf", ".txt", ".csv"]
     d["documents_to_process"] = []
+    d["messages"] = []
     return d
 
 
@@ -66,3 +73,4 @@ def initialize_app():
     _set_session_state(d)
     if "VD" not in st.session_state:
         _update_connection()
+    set_api_key()
