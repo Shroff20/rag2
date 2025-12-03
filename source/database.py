@@ -151,6 +151,8 @@ class VectorDatabase:
              df_results = pd.concat(df_results, axis = 0)
         else:
             df_results = pd.DataFrame()
+            
+        df_results = df_results.reset_index(drop=True)
 
         return df_results
     
@@ -215,18 +217,23 @@ def _results_to_df(results, document_length_limit = None, idx = 0, keep_cols = N
         df_metadata = pd.DataFrame(results['metadatas'][slicer], index = range(len(df))).drop(columns = 'id')
         df = pd.concat([df, df_metadata], axis = 1).reset_index(drop = True)
 
+
+    def string_to_vec(df, dtype = np.float16): #TODO fix this
+        df = df.replace(np.nan, '')
+        df = df.apply(ast.literal_eval)
+        df = df.apply(lambda x: np.array(x, dtype = np.float16))
+        return df
+
+
+
     datetime_format =  r"%Y-%m-%d %H:%M:%S"
     type_converter = {}
     type_converter['creation_date'] = lambda x:  pd.to_datetime(x, format = datetime_format)
     type_converter['upload_date'] = lambda x:  pd.to_datetime(x, format = datetime_format)
     type_converter['modification_date'] = lambda x:  pd.to_datetime(x, format = datetime_format)
-    type_converter['page_lengths'] = lambda x:  x.apply(ast.literal_eval)
+    type_converter['page_lengths'] = lambda x:  string_to_vec(x, dtype = np.int32)
     type_converter['document'] = lambda x:  x.str[:document_length_limit]
-    type_converter['pca_embedding'] = lambda x: x.apply(ast.literal_eval).apply(lambda x: np.array(x, dtype=np.float32))
-    #type_converter['pca_embedding'] = lambda x: np.fromstring(x, sep = ',', dtype = np.float32)
-
-
-    #type_converter['embedding'] = lambda x:  x.astype(np.float32)
+    type_converter['pca_embedding'] = string_to_vec
 
     for col in df.columns:
         if col in type_converter.keys():
@@ -235,6 +242,8 @@ def _results_to_df(results, document_length_limit = None, idx = 0, keep_cols = N
     if keep_cols is not None:
         cols = [col for col in df.columns if col in keep_cols]
         df = df[cols]
+
+    df = df.reset_index(drop=True)
 
     return df
 

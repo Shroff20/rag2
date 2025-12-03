@@ -38,7 +38,6 @@ def perform_search():
     df_results = database._reorder_cols(
         df_results, ["distance", "basename", "document"]
     )
-    print(st.session_state)
     st.session_state["df_search_results"] = df_results
 
 
@@ -62,9 +61,10 @@ with tab1:
 
     if event is not None and len(event["selection"]["rows"]) > 0:
         selected_row_idx = event["selection"]["rows"][0]
-        selected_doc = st.session_state["df_documents"].loc[
-            st.session_state["df_documents"].index[selected_row_idx], :
-        ]
+        #st.write(f'selected row idx: {selected_row_idx}')
+        selected_doc = st.session_state["df_documents"].iloc[selected_row_idx]
+
+        #st.write(selected_doc)
         st.text(f"{N_return_docs} similar documents to {selected_doc.basename}:")
 
         df_results = st.session_state["VD"].search_by_id(
@@ -80,7 +80,7 @@ with tab1:
 
 with tab2:
     st.text_input(
-        label="Search query",
+        label="Search query (longer is better)",
         key="search_query",
         on_change=perform_search,
         value=st.session_state.get("search_query", ""),
