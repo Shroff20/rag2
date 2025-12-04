@@ -74,7 +74,7 @@ class VectorDatabase:
             metadatas = all_data[2]
 
             self.collection.upsert(
-                ids=ids, documents = documents, metadatas = metadatas)
+               ids=ids, documents = documents, metadatas = metadatas)
             
             N_documents = len(filenames)
             N_chunks = len(ids) - N_documents
@@ -148,7 +148,7 @@ class VectorDatabase:
                 df_results.append(df_results_chunk)
             offset += processing_limit
         if len(df_results) > 0:
-             df_results = pd.concat(df_results, axis = 0)
+             df_results = pd.concat(df_results, axis = 0).copy() # solve fragmantation issue
         else:
             df_results = pd.DataFrame()
             

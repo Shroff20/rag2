@@ -41,7 +41,7 @@ if run_clustering or autorun:
 
     CA.perform_kmeans_clustering(n_clusters = n_clusters)
     
-    df = st.session_state['VD'].get(keep_cols = ['id', 'basename', 'kmeans_cluster_idx', 'pca_embedding'], get_kwargs={"where": {"source_type": "full document"}})
+    df = st.session_state['VD'].get(keep_cols = ['id', 'basename', 'kmeans_cluster_idx', 'pca_embedding'], get_kwargs={"where": {"source_type": "full document"}}).copy()
 
     pca_dims = len(df['pca_embedding'][0])
     print(f'pca_dims = {pca_dims}')
