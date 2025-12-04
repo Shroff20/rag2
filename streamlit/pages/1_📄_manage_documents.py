@@ -31,6 +31,8 @@ def process_files(files):
     starting_document_count = st.session_state["VD"].collection.metadata[
         "N_full_documents"
     ]
+    
+
     percent_complete = 0.0
     for i, file in enumerate(files):
         with st.sidebar:
