@@ -15,7 +15,8 @@ import ast
 import numpy as np
 import source.rag as rag
 from functools import reduce
-
+import time
+import multiprocessing as mp
 
 pd.set_option("display.max_columns", None)
 pd.set_option("display.width", 1000)
@@ -52,6 +53,8 @@ class VectorDatabase:
         if type(filenames) is not list:
             filenames = [filenames,]
 
+        #add_files_parallel(filenames, database_path=self.database_folder, collection_name=self.collection.name, device = self.device)
+
         all_data = []
         for filename in filenames:
             # check if document already has been added, skip if so
@@ -85,6 +88,7 @@ class VectorDatabase:
 
     def search(self, query, k=10, **kwargs):
         results = self.collection.query(query_texts=[query], n_results=k, **kwargs)
+        print(results)
         df_results = _results_to_df(results)
         print(f"found {len(df_results)} similar documents")
         return df_results
@@ -186,7 +190,10 @@ class CustomEmbeddingFunction(EmbeddingFunction):
         self.model = SentenceTransformer(
             "all-MiniLM-L6-v2", model_kwargs={"torch_dtype": "float32"}, device=device
         )
-        self.name = "all-MiniLM-L6-v2"
+        self._name = "all-MiniLM-L6-v2"
+    
+    def name(self):
+        return self._name
 
     def __call__(self, input: Documents) -> Embeddings:
         embeddings = self.model.encode(input, normalize_embeddings=True)
@@ -214,7 +221,7 @@ def _results_to_df(results, document_length_limit = None, idx = 0, keep_cols = N
     df = pd.DataFrame.from_dict(d)
 
     if results.get('metadatas') is not None:
-        df_metadata = pd.DataFrame(results['metadatas'][slicer], index = range(len(df))).drop(columns = 'id')
+        df_metadata = pd.DataFrame(results['metadatas'][slicer], index = range(len(df))).drop(columns = 'id', errors = 'ignore')
         df = pd.concat([df, df_metadata], axis = 1).reset_index(drop = True)
 
 
@@ -256,3 +263,91 @@ def _reorder_cols(df, cols_to_move_to_front):
     ]
     return df
 
+
+def _producer(filenames, queue, batch_size=1000):
+
+    documents = []
+    metadatas = []
+    ids = []
+
+    for filename in filenames:
+
+        data = [
+            x.convert_to_vector_database_format()
+            for x in parsers.parse_document(filename)
+        ]  # id, document, metadata
+        ids += [x[0] for x in data]
+        documents += [x[1] for x in data]
+        metadatas += [x[2] for x in data]
+
+        if len(ids) >= batch_size:
+            # When batch size is reached, put the batch into the queue
+            queue.put((ids, documents, metadatas))
+            documents = []
+            metadatas = []
+            ids = []
+            print("added batch to queue")
+
+    queue.put((ids, documents, metadatas))
+    print("added last batch to queue")
+
+
+# Worker function to get items from the queue
+def _consumer(queue, database_path, collection_name, device):
+
+    chroma_client = chromadb.PersistentClient(path=database_path)
+    collection = chroma_client.get_collection(
+        name=collection_name, embedding_function=CustomEmbeddingFunction(device=device)
+    )
+
+    while True:
+        # Check for items in queue, this process blocks until queue has items to process.
+        batch = queue.get()
+        if batch is None:
+            break
+
+        # Add to collection
+        collection.add(
+            ids=batch[0],
+            documents=batch[1],
+            metadatas=batch[2],
+        )  # id, document, metadata
+        print(f"{collection.count()} records in collection")
+
+
+def add_files_parallel(filenames, database_path, collection_name, device):
+
+    # Create a shared queue
+    queue = mp.Queue()
+
+    # Create producer and consumer processes.
+    producer_process = mp.Process(
+        target=_producer,
+        args=(
+            filenames,
+            queue,
+        ),
+    )
+    consumer_process = mp.Process(
+        target=_consumer,
+        args=(queue, database_path, collection_name, device),
+    )
+
+    start_time = time.time()
+
+    # Start processes
+    producer_process.start()
+    consumer_process.start()
+
+    # Wait for producer to finish producing
+    producer_process.join()
+
+    # Signal consumer to stop consuming by putting None into the queue. Need 2 None's to stop 2 consumers.
+    queue.put(None)
+
+    # Wait for consumer to finish consuming
+    consumer_process.join()
+
+    print(
+        f"Done adding document in parallel: Elapsed seconds: {time.time()-start_time:.0f}"
+    )
