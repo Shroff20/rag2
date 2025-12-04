@@ -3,7 +3,7 @@
 import streamlit as st
 import pandas as pd
 import importlib
-import shroff_rag
+import source.shroff_rag as shroff_rag
 importlib.reload(shroff_rag)
 import tempfile
 import os
@@ -245,3 +245,4 @@ with tab4:
     st.dataframe(df[allowed_cols], on_select= selection_func, selection_mode = 'multi-row', key = 'selected_rows')
     
    
+ 

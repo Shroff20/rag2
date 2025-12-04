@@ -1,0 +1,79 @@
+import sys
+sys.path.append("..")
+import streamlit as st
+import streamlit_functions as sf
+import source.database as database
+import importlib
+import cluster
+import plotly.express as px
+import pandas as pd
+
+importlib.reload(database)
+importlib.reload(cluster)
+importlib.reload(sf)
+
+st.set_page_config(
+    page_title="Cluster",
+    page_icon="✨",
+)
+st.title("Cluster")
+sf.initialize_app()
+sf.make_sidebar()
+
+
+with st.sidebar.container( border = True):
+    st.markdown('## Settings')
+    n_clusters = st.slider(label = "\# clusters", min_value=1, max_value = 10, value = 3)
+    plot_3d = st.toggle('plot 3d', value = True)
+    autorun = st.toggle('autorun', value = True)
+
+
+
+run_clustering = st.button('▶️ run clustering', disabled = autorun, help = 'if autorun is enabled on the sidebar, clustering will run automatically')
+
+if run_clustering or autorun:
+
+    CA = cluster.ClusterAnalyis(st.session_state["VD"])
+
+    if not st.session_state['status_pca_valid']:
+        CA.calculate_pca()
+        st.session_state['status_pca_valid'] = True
+
+    CA.perform_kmeans_clustering(n_clusters = n_clusters)
+    
+    df = st.session_state['VD'].get(keep_cols = ['id', 'basename', 'kmeans_cluster_idx', 'pca_embedding'], get_kwargs={"where": {"source_type": "full document"}}).copy()
+
+    pca_dims = len(df['pca_embedding'][0])
+    print(f'pca_dims = {pca_dims}')
+
+    for i in range(pca_dims):
+        df[f'pca_{i}'] = df['pca_embedding'].apply(lambda x: x[i])
+    df['label'] = [f'cluster {label}' for label in  df['kmeans_cluster_idx']]
+    df = df.drop(columns = ['pca_embedding'])
+    df = df.sort_values(by = ['label', 'basename'])
+
+    if plot_3d:
+        fig = px.scatter_3d(data_frame=df, x='pca_0', y='pca_1', z = 'pca_2', color='label', hover_data=['basename'])
+        fig.update_layout(scene_camera=dict(eye=dict(x=1.5, y=1.5, z=1.0))) # Adjust eye coordinates
+        fig.update_layout(margin=dict(l=0, r=0, t=0, b=0)) # Set margins to zero
+        st.plotly_chart(fig)
+    else:
+        fig = px.scatter(data_frame=df, x='pca_0', y='pca_1', color='label', hover_data=['basename'])
+        st.plotly_chart(fig)
+
+    def groupby_func(df):
+        return pd.Series({'count': len(df), 'documents': list(df['basename'])})
+
+    df_counts = df.groupby('label').apply(lambda x: groupby_func(x), include_groups = False).reset_index()
+    st.dataframe(df_counts, width='content')
+
+    #st.dataframe(df)
+
+    
+    st.download_button(
+            label="download .csv cluster results",
+            data=df.to_csv(index=False),
+            file_name=f"cluster_n-{n_clusters}.csv",
+            mime="text/csv",
+            icon=":material/download:",
+        )
