@@ -31,7 +31,17 @@ def process_files(files):
     starting_document_count = st.session_state["VD"].collection.metadata[
         "N_full_documents"
     ]
+
+    # flist = []
+    # temp_dir = tempfile.mkdtemp()
+    # for i, file in enumerate(files):
+    #     tmp_file_path = os.path.join(temp_dir, file.name)
+    #     flist.append(tmp_file_path)
+    #     with open(tmp_file_path, "wb") as f:
+    #          f.write(file.getvalue())
     
+    # st.session_state['VD'].add_documents(flist)
+
 
     percent_complete = 0.0
     for i, file in enumerate(files):

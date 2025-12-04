@@ -1,5 +1,5 @@
 import sys
-sys.path.append("../source/")
+sys.path.append("..")
 import streamlit as st
 import source.database as database
 import streamlit_functions as sf

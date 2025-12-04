@@ -157,22 +157,27 @@ def parse_document(filename, chunk_document = True, chunk_size=2000, chunk_overl
     print(f'parsing [{filename}]')
     ext =  os.path.splitext(filename)[1]
 
-    #TODO: update this to a map or switch case
-    if ext == '.pdf':
-        D = parse_pdf(filename)
-    elif ext == '.txt':
-        D = parse_txt(filename)
-    elif ext == 'csv':
-        D = parse_csv(filename)
-    else:
-        raise(Exception(f'do not know how to parse {ext}'))
-    
-    if chunk_document:
-        chunks = get_chunks_from_document(D, chunk_size = chunk_size, chunk_overlap = chunk_overlap)
-    else:
-        chunks = []
+    try:
+        #TODO: update this to a map or switch case
+        if ext == '.pdf':
+            D = parse_pdf(filename)
+        elif ext == '.txt':
+            D = parse_txt(filename)
+        elif ext == 'csv':
+            D = parse_csv(filename)
+        else:
+            raise(Exception(f'do not know how to parse {ext}'))
+        
+        if chunk_document:
+            chunks = get_chunks_from_document(D, chunk_size = chunk_size, chunk_overlap = chunk_overlap)
+        else:
+            chunks = []
 
-    all_data = [D,] + chunks
+        all_data = [D,] + chunks
+    
+    except:
+        print(f'ERROR: could not parse [{filename}]')
+        all_data = []
 
     return all_data
 
